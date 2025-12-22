@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PIXEL-8 Console - NIVARO</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        :root {
+            --p8-green: #00ff41;
+            --p8-red: #ff3e3e;
+            --p8-blue: #2ecbff;
+            --p8-pink: #ff7f7f;
+            --p8-yellow: #ffff00;
+            --p8-sky: #5c94fc;
+        }
+
+        body {
+            background: #0a0a0a;
+            color: var(--p8-green);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            user-select: none;
+            touch-action: none;
+        }
+
+        #console-unit {
+            background: #222;
+            border: 12px solid #333;
+            border-radius: 20px;
+            padding: 15px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8), inset 0 0 10px rgba(0,0,0,0.5);
+            position: relative;
+            max-width: 95vw;
+        }
+
+        #label {
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            text-shadow: 0 0 5px var(--p8-green);
+            font-size: 14px;
+        }
+
+        #screen-container {
+            position: relative;
+            background: #000;
+            border: 6px solid #111;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+
+        #screen-container::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 3px, 3px 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        canvas {
+            width: 320px;
+            height: 288px;
+            max-width: 100%;
+            image-rendering: pixelated;
+            display: block;
+        }
+
+        #cartridges {
+            margin-top: 15px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .cart-btn {
+            background: #333;
+            color: var(--p8-green);
+            border: 2px solid var(--p8-green);
+            padding: 8px;
+            font-family: inherit;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.1s;
+            text-transform: uppercase;
+        }
+
+        .cart-btn:hover { background: var(--p8-green); color: #000; }
+        .cart-btn.active { background: #fff; color: #000; border-color: #fff; box-shadow: 0 0 10px #fff; }
+
+        /* Virtual Controls for Mobile */
+        #mobile-controls {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+        }
+
+        .d-pad {
+            display: grid;
+            grid-template-columns: repeat(3, 40px);
+            grid-template-rows: repeat(3, 40px);
+            gap: 4px;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 15px;
+        }
+
+        .ctrl-node {
+            background: #444;
+            border: 2px solid #666;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #888;
+            font-weight: bold;
+            font-size: 18px;
+            touch-action: none;
+        }
+
+        .ctrl-node:active, .ctrl-node.pressed {
+            background: #666;
+            border-color: #eee;
+            color: #fff;
+        }
+
+        .btn-circle {
+            width: 55px;
+            height: 55px;
+            border-radius: 50%;
+            background: var(--p8-red);
+            border: 3px solid #900;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-weight: bold;
+            box-shadow: 0 4px 0 #600;
+        }
+
+        .btn-circle:active, .btn-circle.pressed {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #600;
+            background: #ff5e5e;
+        }
+
+        #instructions {
+            margin-top: 15px;
+            font-size: 10px;
+            text-align: center;
+            opacity: 0.7;
+        }
+
+        @media (min-width: 768px) {
+            #mobile-controls { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="console-unit">
+    <div id="label">PIXEL-8 // NIVARO™</div>
+    
+    <div id="screen-container">
+        <canvas id="screen" width="160" height="144"></canvas>
+    </div>
+
+    <div id="mobile-controls">
+        <div class="d-pad">
+            <div></div>
+            <div class="ctrl-node" data-key="ArrowUp">▲</div>
+            <div></div>
+            <div class="ctrl-node" data-key="ArrowLeft">◀</div>
+            <div></div>
+            <div class="ctrl-node" data-key="ArrowRight">▶</div>
+            <div></div>
+            <div class="ctrl-node" data-key="ArrowDown">▼</div>
+            <div></div>
+        </div>
+        <div class="action-btns">
+            <div class="btn-circle ctrl-node" data-key=" ">A</div>
+        </div>
+    </div>
+
+    <div id="cartridges">
+        <button class="cart-btn" onclick="loadGame('world', this)">Insert Nivo World</button>
+        <button class="cart-btn" onclick="loadGame('jump', this)">Insert Nivo Jump</button>
+        <button class="cart-btn" onclick="loadGame('snake', this)">Insert Slithering Snake</button>
+        <button class="cart-btn" onclick="loadGame('invader', this)">Insert Super Shooter</button>
+	<button class="cart-btn" onclick="loadGame('maze', this)">Insert Maze Runner</button>
+	<button class="cart-btn" onclick="loadGame('miniRacer', this)">Insert Mini Racer</button>
+	<button class="cart-btn" onclick="loadGame('fishing', this)">Insert Fishing Adventure</button>
+	<button class="cart-btn" onclick="loadGame('towerDefense', this)">Insert Tower Defense</button>
+	<button class="cart-btn" onclick="loadGame('pixelPainter', this)">Insert Pixel Painter</button>
+	<button class="cart-btn" onclick="loadGame('spaceMining', this)">Insert Space Mining Adventure</button>
+	<button class="cart-btn" onclick="loadGame('pixelRunner', this)">Insert Pixel Runner</button>
+	<button class="cart-btn" onclick="loadGame('balloonPopper', this)">Insert Balloon Popper</button>
+	<button class="cart-btn" onclick="loadGame('rhythmTap', this)">Insert Rhythm Tap</button>
+	<button class="cart-btn" onclick="loadGame('alienDodger', this)">Insert Alien Dodger</button>
+	<button class="cart-btn" onclick="loadGame('gemCollector', this)">Insert Gem Collector</button>
+    </div>
+
+    <div id="instructions">ARROWS TO MOVE • SPACE/A TO ACT</div>
+</div>
+
+<script>
+    const canvas = document.getElementById("screen");
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function beep(freq, type, duration, volume = 0.1) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    let keys = {};
+    let game = null;
+    let booting = true;
+    let bootTimer = 0;
+
+    // Keyboard Input
+    window.addEventListener("keydown", e => {
+        keys[e.key] = true;
+        if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key)) e.preventDefault();
+    });
+    window.addEventListener("keyup", e => keys[e.key] = false);
+
+    // Mobile Input
+    document.querySelectorAll('.ctrl-node').forEach(node => {
+        const key = node.getAttribute('data-key');
+        const handleStart = (e) => {
+            e.preventDefault();
+            keys[key] = true;
+            node.classList.add('pressed');
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        };
+        const handleEnd = (e) => {
+            e.preventDefault();
+            keys[key] = false;
+            node.classList.remove('pressed');
+        };
+        node.addEventListener('touchstart', handleStart);
+        node.addEventListener('touchend', handleEnd);
+        node.addEventListener('mousedown', handleStart);
+        node.addEventListener('mouseup', handleEnd);
+        node.addEventListener('mouseleave', handleEnd);
+    });
+
+    function loadGame(name, btn, params = {}) {
+        document.querySelectorAll('.cart-btn').forEach(b => b.classList.remove('active'));
+        if(btn) btn.classList.add('active');
+        
+        beep(440, 'square', 0.1);
+        booting = false;
+        if (name === "world") game = NivoWorldGame(params.worldIndex || 0);
+        if (name === "jump") game = NivoJumpGame();
+        if (name === "snake") game = SnakeGame();
+        if (name === "invader") game = InvaderGame();
+	if (name === "maze") game = MazeRunnerGame();
+	if (name === "miniRacer") game = MiniRacerGame();
+	if (name === "fishing") game = FishingAdventureGame();
+	if (name === "towerDefense") game = TowerDefenseGame();
+	if (name === "pixelPainter") game = PixelPainterGame();
+	if (name === "spaceMining") game = SpaceMiningGame();
+	if (name === "pixelRunner") game = PixelRunnerGame();
+	if (name === "balloonPopper") game = BalloonPopperGame();
+	if (name === "rhythmTap") game = RhythmTapGame();
+	if (name === "alienDodger") game = AlienDodgerGame();
+	if (name === "gemCollector") game = GemCollectorGame();
+
+    }
+
+    function loop() {
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, 160, 144);
+        if (booting) drawBoot();
+        else if (game) game.update();
+        else drawIdle();
+        requestAnimationFrame(loop);
+    }
+
+    function drawBoot() {
+        bootTimer++;
+        let y = 72 + Math.sin(bootTimer / 10) * 8;
+        ctx.fillStyle = "#ff7f7f";
+        ctx.beginPath(); ctx.arc(80, y, 16, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#2ecbff";
+        ctx.fillRect(72, y - 4, 4, 4); ctx.fillRect(84, y - 4, 4, 4);
+        if (bootTimer > 40) {
+            ctx.fillStyle = "#0f0";
+            ctx.font = "10px monospace";
+            ctx.textAlign = "center";
+            ctx.fillText("N I V A R O", 80, 115);
+        }
+        if (bootTimer > 120) booting = false;
+    }
+
+    function drawIdle() {
+        ctx.fillStyle = "#0f0";
+        ctx.font = "8px monospace";
+        ctx.textAlign = "center";
+        let blink = Math.floor(Date.now() / 500) % 2;
+        if (blink) ctx.fillText("INSERT CARTRIDGE", 80, 72);
+        let ty = 130 + Math.sin(Date.now() / 200) * 2;
+        ctx.fillStyle = "#ff7f7f";
+        ctx.fillRect(145, ty, 8, 8);
+    }
+
+    // --- GAME: SUPER NIVO WORLD ---
+    function NivoWorldGame(worldIndex = 0) {
+        let p = { x: 20, y: 100, vx: 0, vy: 0, w: 10, h: 10, invul: 0 };
+        let scrollX = 0;
+        const gravity = 0.25;
+        const bouncePower = -6;
+        const speed = 0.5;
+        const friction = 0.85;
+
+        const worldThemes = [
+            { name: "1-1: FOREST", bg: "#5c94fc", ground: "#8b4513", top: "#2e8b57", cloud: "#fff" },
+            { name: "1-2: OCEAN", bg: "#003366", ground: "#d2b48c", top: "#f4a460", cloud: "#add8e6" },
+            { name: "1-3: VOLCANO", bg: "#220000", ground: "#333", top: "#ff4500", cloud: "#555" },
+            { name: "BOSS: THE CORE", bg: "#111", ground: "#222", top: "#444", cloud: "#000" }
+        ];
+
+        let theme = worldThemes[worldIndex % worldThemes.length];
+        let isBossLevel = worldIndex === 3;
+
+        let levelData = [
+            {
+                blocks: [
+                    { x: 0, y: 130, w: 200, h: 20 },
+                    { x: 250, y: 110, w: 60, h: 40 },
+                    { x: 380, y: 130, w: 250, h: 20 },
+                    { x: 500, y: 80, w: 40, h: 8 },
+                    { x: 630, y: 130, w: 120, h: 20 },
+                    { x: 700, y: 40, w: 6, h: 90, type: 'goal' }
+                ],
+                enemies: [
+                    { type: 'walker', x: 120, y: 120, w: 10, h: 10, dir: 1, limitL: 0, limitR: 200 },
+                    { type: 'walker', x: 450, y: 120, w: 10, h: 10, dir: 1, limitL: 380, limitR: 630 }
+                ]
+            },
+            {
+                blocks: [
+                    { x: 0, y: 130, w: 100, h: 20 },
+                    { x: 120, y: 100, w: 40, h: 10 },
+                    { x: 180, y: 70, w: 40, h: 10 },
+                    { x: 240, y: 100, w: 40, h: 10 },
+                    { x: 300, y: 130, w: 200, h: 20 },
+                    { x: 550, y: 110, w: 150, h: 40 },
+                    { x: 680, y: 40, w: 6, h: 100, type: 'goal' }
+                ],
+                enemies: [
+                    { type: 'flyer', x: 150, y: 60, base: 60, range: 30, t: 0 },
+                    { type: 'flyer', x: 350, y: 100, base: 100, range: 40, t: Math.PI },
+                    { type: 'walker', x: 580, y: 100, w: 10, h: 10, dir: 1, limitL: 550, limitR: 650 }
+                ]
+            },
+            {
+                blocks: [
+                    { x: 0, y: 130, w: 120, h: 20 },
+                    { x: 160, y: 130, w: 120, h: 20 },
+                    { x: 320, y: 130, w: 120, h: 20 },
+                    { x: 200, y: 80, w: 40, h: 8 },
+                    { x: 360, y: 60, w: 40, h: 8 },
+                    { x: 500, y: 130, w: 200, h: 20 },
+                    { x: 650, y: 40, w: 6, h: 100, type: 'goal' }
+                ],
+                enemies: [
+                    { type: 'jumper', x: 100, y: 120, vy: 0, timer: 0 },
+                    { type: 'jumper', x: 250, y: 120, vy: 0, timer: 60 },
+                    { type: 'jumper', x: 400, y: 120, vy: 0, timer: 30 },
+                    { type: 'flyer', x: 300, y: 40, base: 40, range: 20, t: 0 }
+                ]
+            },
+            {
+                blocks: [
+                    { x: 0, y: 130, w: 160, h: 20 }
+                ],
+                enemies: [
+                    { type: 'boss', x: 80, y: 30, r: 25, hp: 3, state: 'hover', timer: 0, targetX: 80 }
+                ]
+            }
+        ];
+
+        let currentLevel = levelData[worldIndex % levelData.length];
+        let gameWin = false;
+
+        function drawBoss(b) {
+            ctx.save();
+            ctx.translate(b.x, b.y);
+            ctx.fillStyle = "#2ecbff";
+            ctx.beginPath();
+            ctx.arc(0, 0, b.r, 0, Math.PI*2);
+            ctx.fill();
+            ctx.strokeStyle = "#000"; ctx.lineWidth = 2; ctx.stroke();
+            ctx.fillStyle = "#ff0000";
+            ctx.beginPath(); ctx.arc(-8, -4, 4, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(8, -4, 4, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(-14, -12); ctx.lineTo(-4, -6); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(14, -12); ctx.lineTo(4, -6); ctx.stroke();
+            ctx.fillStyle = "#000";
+            ctx.fillRect(-6, 8, 12, 2);
+            ctx.restore();
+        }
+
+        return {
+            update() {
+                ctx.fillStyle = theme.bg;
+                ctx.fillRect(0,0,160,144);
+
+                if (gameWin) {
+                    ctx.fillStyle = "#fff";
+                    ctx.font = "12px monospace";
+                    ctx.textAlign = "center";
+                    ctx.fillText("YOU SAVED WORLD!", 80, 60);
+                    ctx.fillText("FINAL SCORE: " + (worldIndex + 1), 80, 80);
+                    return;
+                }
+
+                if (keys["ArrowLeft"]) p.vx -= speed;
+                if (keys["ArrowRight"]) p.vx += speed;
+                p.vx *= friction;
+
+                p.vy += gravity;
+                p.x += p.vx;
+                p.y += p.vy;
+                if (p.invul > 0) p.invul--;
+
+                currentLevel.blocks.forEach(obj => {
+                    if (p.x + p.w > obj.x && p.x < obj.x + obj.w &&
+                        p.y + p.h > obj.y && p.y < obj.y + obj.h) {
+                        
+                        if(obj.type === 'goal') {
+                            beep(800, 'sine', 0.2);
+                            loadGame('world', null, { worldIndex: worldIndex + 1 }); 
+                        } else if (p.vy > 0 && p.y + p.h < obj.y + 10) {
+                            p.y = obj.y - p.h;
+                            p.vy = bouncePower;
+                            beep(400, 'triangle', 0.05, 0.05);
+                        }
+                    }
+                });
+
+                currentLevel.enemies.forEach((e, idx) => {
+                    if (e.type === 'walker') {
+                        e.x += e.dir * 0.8;
+                        if (e.x < e.limitL || e.x > e.limitR - (e.w || 10)) e.dir *= -1;
+                    } else if (e.type === 'flyer') {
+                        e.t += 0.05;
+                        e.y = e.base + Math.sin(e.t) * e.range;
+                    } else if (e.type === 'jumper') {
+                        e.vy += 0.2; e.y += e.vy;
+                        if (e.y > 120) { e.y = 120; e.timer++; if (e.timer > 60) { e.vy = -6; e.timer = 0; } }
+                        if (Math.abs(p.x - e.x) < 80) e.x += (p.x > e.x ? 0.4 : -0.4);
+                    } else if (e.type === 'boss') {
+                        e.timer++;
+                        if (e.state === 'hover') {
+                            e.x += (p.x - e.x) * 0.02;
+                            e.y = 30 + Math.sin(e.timer * 0.08) * 8;
+                            if (e.timer > 240) { e.state = 'slam'; e.timer = 0; }
+                        } else if (e.state === 'slam') {
+                            e.y += 4.5;
+                            if (e.y > 105) { e.y = 105; e.state = 'recovery'; e.timer = 0; beep(100, 'square', 0.1); }
+                        } else if (e.state === 'recovery') {
+                            if (e.timer > 80) { e.state = 'hover'; e.timer = 0; }
+                        }
+
+                        let dist = Math.sqrt((p.x+5-e.x)**2 + (p.y+5-e.y)**2);
+                        if (dist < e.r + 5 && p.invul <= 0) {
+                            if (p.vy > 0 && p.y < e.y - 12) {
+                                e.hp--;
+                                p.vy = -10;
+                                p.invul = 60;
+                                beep(600, 'square', 0.2);
+                                if (e.hp <= 0) {
+                                    gameWin = true;
+                                    beep(1200, 'sine', 1.0);
+                                }
+                                e.state = 'hover'; e.timer = 0;
+                            } else {
+                                beep(100, 'sawtooth', 0.3);
+                                loadGame('world', null, { worldIndex });
+                            }
+                        }
+                    }
+
+                    if (e.type !== 'boss') {
+                        if (p.x < e.x + 10 && p.x + p.w > e.x && p.y < (e.y || 0) + 10 && p.y + p.h > (e.y || 0)) {
+                            beep(100, 'sawtooth', 0.3);
+                            loadGame('world', null, { worldIndex });
+                        }
+                    }
+                });
+
+                if (!isBossLevel) {
+                    if (p.x > scrollX + 100) scrollX = p.x - 100;
+                    if (p.x < scrollX + 20) scrollX = p.x - 20;
+                    scrollX = Math.max(0, scrollX);
+                } else {
+                    scrollX = 0;
+                    if (p.x < 0) p.x = 0;
+                    if (p.x > 150) p.x = 150;
+                }
+
+                if (p.y > 160) {
+                    beep(150, 'sawtooth', 0.3);
+                    loadGame('world', null, { worldIndex });
+                    return;
+                }
+
+                ctx.save();
+                ctx.translate(-scrollX, 0);
+                ctx.fillStyle = theme.cloud;
+                ctx.fillRect(50, 30, 20, 10);
+
+                currentLevel.blocks.forEach(obj => {
+                    if(obj.type === 'goal') {
+                        ctx.fillStyle = "#aaa"; ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+                        ctx.fillStyle = "#ff0"; ctx.beginPath(); ctx.moveTo(obj.x, obj.y); ctx.lineTo(obj.x + 15, obj.y + 10); ctx.lineTo(obj.x, obj.y + 20); ctx.fill();
+                    } else {
+                        ctx.fillStyle = theme.ground; ctx.fillRect(obj.x, obj.y, obj.w, obj.h);
+                        ctx.fillStyle = theme.top; ctx.fillRect(obj.x, obj.y, obj.w, 4);
+                    }
+                });
+
+                currentLevel.enemies.forEach(e => {
+                    if (e.type === 'boss') drawBoss(e);
+                    else {
+                        ctx.fillStyle = e.type === 'walker' ? "#f0f" : (e.type === 'flyer' ? "#fff" : "#ff0");
+                        ctx.fillRect(e.x, e.y || 0, 10, 10);
+                    }
+                });
+
+                if (p.invul % 4 < 2) {
+                    ctx.fillStyle = "#ff7f7f";
+                    ctx.fillRect(p.x, p.y, p.w, p.h);
+                    ctx.fillStyle = "#000";
+                    ctx.fillRect(p.x + 2, p.y + 2, 2, 2); ctx.fillRect(p.x + 6, p.y + 2, 2, 2);
+                }
+                ctx.restore();
+
+                ctx.fillStyle = "#fff";
+                ctx.font = "8px monospace";
+                ctx.textAlign = "left";
+                ctx.fillText(theme.name, 10, 15);
+                if (isBossLevel && currentLevel.enemies[0]) {
+                    ctx.fillText("CORE HP: " + currentLevel.enemies[0].hp, 10, 25);
+                }
+            }
+        };
+    }
+
+    function NivoJumpGame() {
+        let player = { x: 75, y: 100, vy: 0, w: 10, h: 10 };
+        let platforms = []; let score = 0; const gravity = 0.2; const jumpPower = -5;
+        for(let i=0; i<6; i++) platforms.push({ x: Math.random() * 120 + 10, y: 140 - (i * 30), w: 30, h: 4 });
+        return {
+            update() {
+                if (keys["ArrowLeft"]) player.x -= 2.5;
+                if (keys["ArrowRight"]) player.x += 2.5;
+                if (player.x < -player.w) player.x = 160;
+                if (player.x > 160) player.x = -player.w;
+                player.vy += gravity; player.y += player.vy;
+                if (player.vy > 0) {
+                    platforms.forEach(p => {
+                        if (player.y + player.h > p.y && player.y + player.h < p.y + 10 && player.x + player.w > p.x && player.x < p.x + p.w) {
+                            player.y = p.y - player.h; player.vy = jumpPower; beep(600, 'sine', 0.05, 0.05);
+                        }
+                    });
+                }
+                if (player.y < 72) { let diff = 72 - player.y; player.y = 72; score += Math.floor(diff); platforms.forEach(p => { p.y += diff; }); }
+                platforms.forEach(p => { if (p.y > 144) { p.y = -10; p.x = Math.random() * 130; p.w = 20 + Math.random() * 20; } });
+                if (player.y > 160) { beep(100, 'sawtooth', 0.3); loadGame('jump'); return; }
+                ctx.fillStyle = "#2ecbff"; platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
+                ctx.fillStyle = "#ff7f7f"; ctx.fillRect(player.x, player.y, player.w, player.h);
+                ctx.fillStyle = "#fff"; ctx.fillText("SCORE:" + score, 5, 10);
+            }
+        };
+    }
+
+    function SnakeGame() {
+        let snake = [{x:80, y:72}]; let dir = {x:8, y:0}; let food = {x:40, y:40}; let tick = 0; let score = 0;
+        return {
+            update() {
+                tick++;
+                if (keys["ArrowUp"] && dir.y === 0) dir = {x:0, y:-8};
+                if (keys["ArrowDown"] && dir.y === 0) dir = {x:0, y:8};
+                if (keys["ArrowLeft"] && dir.x === 0) dir = {x:-8, y:0};
+                if (keys["ArrowRight"] && dir.x === 0) dir = {x:8, y:0};
+                if (tick % 8 === 0) {
+                    let head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+                    if (head.x < 0 || head.x >= 160 || head.y < 0 || head.y >= 144 || snake.some(s => s.x === head.x && s.y === head.y)) {
+                        beep(100, 'sawtooth', 0.5); loadGame('snake'); return;
+                    }
+                    snake.unshift(head);
+                    if (head.x === food.x && head.y === food.y) {
+                        score++; beep(880, 'sine', 0.05);
+                        food = { x: Math.floor(Math.random() * 20) * 8, y: Math.floor(Math.random() * 18) * 8 };
+                    } else { snake.pop(); }
+                }
+                ctx.fillStyle = "#0f0"; snake.forEach(s => ctx.fillRect(s.x, s.y, 7, 7));
+                ctx.fillStyle = "#f00"; ctx.fillRect(food.x, food.y, 7, 7);
+                ctx.fillStyle = "#fff"; ctx.fillText(score, 10, 10);
+            }
+        };
+    }
+
+    function InvaderGame() {
+        let p = {x: 76, y: 130}; let bullets = []; let enemies = []; let reload = 0;
+        for(let i=0; i<8; i++) enemies.push({x: i*18+10, y: 20, v: 0.5});
+        return {
+            update() {
+                if (keys["ArrowLeft"]) p.x -= 2; if (keys["ArrowRight"]) p.x += 2;
+                if (keys[" "] && reload <= 0) { bullets.push({x: p.x + 3, y: p.y}); beep(1200, 'sawtooth', 0.05, 0.05); reload = 15; }
+                if (reload > 0) reload--;
+                enemies.forEach(e => { e.x += e.v; if (e.x > 150 || e.x < 0) e.v *= -1; ctx.fillStyle = "#f0f"; ctx.fillRect(e.x, e.y, 10, 8); });
+                bullets.forEach((b, bi) => {
+                    b.y -= 3; ctx.fillStyle = "#fff"; ctx.fillRect(b.x, b.y, 2, 4);
+                    enemies.forEach((e, ei) => {
+                        if (b.x > e.x && b.x < e.x+10 && b.y > e.y && b.y < e.y+8) { enemies.splice(ei, 1); bullets.splice(bi, 1); beep(200, 'square', 0.1); }
+                    });
+                });
+                ctx.fillStyle = "#0f0"; ctx.fillRect(p.x, p.y, 8, 8);
+                if (enemies.length === 0) { ctx.fillText("CLEAR!", 80, 72); }
+            }
+        };
+    }
+// --- GAME: MAZE RUNNER ---
+function MazeRunnerGame() {
+    const tileSize = 16;
+    const cols = 10, rows = 9;
+    let player = { x: 0, y: 0 };
+    let goal = { x: cols - 1, y: rows - 1 };
+    let maze = [];
+
+    // Generate a simple maze (0 = empty, 1 = wall)
+    function generateMaze() {
+        maze = [];
+        for (let y = 0; y < rows; y++) {
+            maze[y] = [];
+            for (let x = 0; x < cols; x++) {
+                if (x === 0 && y === 0) maze[y][x] = 0;
+                else if (x === cols - 1 && y === rows - 1) maze[y][x] = 0;
+                else maze[y][x] = Math.random() < 0.2 ? 1 : 0;
+            }
+        }
+    }
+    generateMaze();
+
+    function movePlayer(dx, dy) {
+        const nx = player.x + dx;
+        const ny = player.y + dy;
+        if (nx >= 0 && nx < cols && ny >= 0 && ny < rows && maze[ny][nx] === 0) {
+            player.x = nx;
+            player.y = ny;
+            beep(400, 'square', 0.05, 0.05);
+        }
+    }
+
+    let win = false;
+
+    return {
+        update() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, 160, 144);
+
+            // Player input
+            if (keys["ArrowUp"]) movePlayer(0, -1);
+            if (keys["ArrowDown"]) movePlayer(0, 1);
+            if (keys["ArrowLeft"]) movePlayer(-1, 0);
+            if (keys["ArrowRight"]) movePlayer(1, 0);
+
+            // Draw maze
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    if (maze[y][x] === 1) ctx.fillStyle = "#888";
+                    else ctx.fillStyle = "#222";
+                    ctx.fillRect(x*tileSize, y*tileSize, tileSize, tileSize);
+                }
+            }
+
+            // Draw goal
+            ctx.fillStyle = "#ff0";
+            ctx.fillRect(goal.x*tileSize, goal.y*tileSize, tileSize, tileSize);
+
+            // Draw player
+            ctx.fillStyle = "#0f0";
+            ctx.fillRect(player.x*tileSize, player.y*tileSize, tileSize, tileSize);
+
+            // Check win
+            if (player.x === goal.x && player.y === goal.y && !win) {
+                win = true;
+                beep(1200, 'sine', 0.5);
+            }
+
+            if (win) {
+                ctx.fillStyle = "#fff";
+                ctx.font = "10px monospace";
+                ctx.textAlign = "center";
+                ctx.fillText("MAZE COMPLETE!", 80, 72);
+            }
+        }
+    };
+}
+
+
+
+// --- GAME: MINI RACER (LONG TRACK & FASTER) ---
+function MiniRacerGame() {
+    let player = { x: 72, y: 400, vx: 0, vy: 0, w: 16, h: 8 }; // start lower for long track
+    let track = [];
+    const trackWidth = 100;
+    const trackLeft = 30;
+    const friction = 0.95;
+    let speed = 0;
+
+    // Generate a long track (straight + curves)
+    const trackLength = 10000; // much longer
+    for (let i = 0; i < trackLength; i++) {
+        let offset = Math.sin(i/5) * 25 + Math.sin(i/15)*15; // more curves
+        track.push({ y: i*16, left: trackLeft + offset, right: trackLeft + offset + trackWidth });
+    }
+
+    let crash = false;
+    let finish = false;
+
+    return {
+        update() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, 160, 144);
+
+            if (finish) {
+                ctx.fillStyle = "#fff";
+                ctx.font = "10px monospace";
+                ctx.textAlign = "center";
+                ctx.fillText("YOU FINISHED!", 80, 72);
+                return;
+            }
+
+            // Player input
+            if (keys["ArrowLeft"]) player.vx -= 0.3;  // faster turning
+            if (keys["ArrowRight"]) player.vx += 0.3;
+            if (keys["ArrowUp"]) speed += 0.4;       // faster acceleration
+            if (keys["ArrowDown"]) speed -= 0.2;
+
+            speed *= friction;
+            player.vx *= friction;
+            player.y -= speed;
+            player.x += player.vx;
+
+            // Keep on track
+            let trackY = Math.floor(player.y / 16);
+            if (trackY >= 0 && trackY < track.length) {
+                let t = track[trackY];
+                if (player.x < t.left || player.x + player.w > t.right) crash = true;
+            }
+
+            if (player.y <= 0 && !finish) {
+                finish = true;
+                beep(1200, 'sine', 0.5);
+            }
+
+            if (crash) {
+                beep(100, 'sawtooth', 0.3);
+                return loadGame('miniRacer');
+            }
+
+            // Draw track
+            for (let i = 0; i < track.length; i++) {
+                let t = track[i];
+                let drawY = t.y - player.y + 120;
+                if (drawY < -16 || drawY > 144) continue; // skip offscreen
+                ctx.fillStyle = "#444";
+                ctx.fillRect(t.left, drawY, t.right - t.left, 16);
+            }
+
+            // Draw player
+            ctx.fillStyle = "#0f0";
+            ctx.fillRect(player.x, 120, player.w, player.h);
+        }
+    };
+}
+
+
+
+// --- GAME: FISHING ADVENTURE ---
+function FishingAdventureGame() {
+    let player = { x: 80, y: 120, lineY: 120, casting: false };
+    let fish = { x: Math.random() * 140 + 10, y: Math.random() * 60 + 40, caught: false };
+    let score = 0;
+    let timer = 0;
+
+    return {
+        update() {
+            ctx.fillStyle = "#0a0a2a";
+            ctx.fillRect(0, 0, 160, 144);
+
+            // Water
+            ctx.fillStyle = "#2ecbff";
+            ctx.fillRect(0, 60, 160, 80);
+
+            // Player input
+            if (keys["ArrowLeft"] && player.x > 0) player.x -= 1.5;
+            if (keys["ArrowRight"] && player.x < 160 - 8) player.x += 1.5;
+            if (keys[" "] && !player.casting) {
+                player.casting = true;
+                player.lineY = player.y;
+                beep(600, 'square', 0.1);
+            }
+
+            // Line mechanics
+            if (player.casting) {
+                player.lineY += -1.5; // line goes down
+                if (player.lineY >= 140) player.casting = false; // missed
+            }
+
+            // Fish movement
+            fish.x += Math.sin(timer/20) * 0.5;
+            fish.y += Math.sin(timer/15) * 0.3;
+
+            // Check catch
+            if (player.casting && Math.abs(player.x - fish.x) < 8 && Math.abs(player.lineY - fish.y) < 6 && !fish.caught) {
+                fish.caught = true;
+                player.casting = false;
+                score++;
+                beep(1000, 'sine', 0.2);
+                // spawn new fish
+                fish = { x: Math.random() * 140 + 10, y: Math.random() * 60 + 40, caught: false };
+            }
+
+            // Draw player
+            ctx.fillStyle = "#0f0";
+            ctx.fillRect(player.x, player.y, 8, 8);
+
+            // Draw line
+            if (player.casting) {
+                ctx.strokeStyle = "#fff";
+                ctx.beginPath();
+                ctx.moveTo(player.x + 4, player.y + 4);
+                ctx.lineTo(player.x + 4, player.lineY);
+                ctx.stroke();
+            }
+
+            // Draw fish
+            ctx.fillStyle = "#ff0";
+            ctx.fillRect(fish.x, fish.y, 8, 4);
+
+            // Score
+            ctx.fillStyle = "#fff";
+            ctx.font = "8px monospace";
+            ctx.fillText("FISH CAUGHT: " + score, 5, 10);
+
+            timer++;
+        }
+    };
+}
+
+
+
+
+
+
+// --- GAME: TOWER DEFENSE LITE ---
+function TowerDefenseGame() {
+    const path = [
+        {x: 10, y: 10}, {x: 10, y: 120}, {x: 70, y: 120}, {x: 70, y: 30}, {x: 140, y: 30}, {x: 140, y: 110}
+    ];
+    let enemies = [];
+    let towers = [];
+    let bullets = [];
+    let spawnTimer = 0;
+    let money = 10;
+    let lives = 5;
+
+    function spawnEnemy() {
+        enemies.push({ x: path[0].x, y: path[0].y, pathIndex: 0, hp: 3 });
+    }
+
+    function placeTower(x, y) {
+        if (money >= 5) {
+            towers.push({ x: x, y: y, cooldown: 0 });
+            money -= 5;
+            beep(600, 'square', 0.1);
+        }
+    }
+
+    return {
+        update() {
+            ctx.fillStyle = "#111";
+            ctx.fillRect(0, 0, 160, 144);
+
+            // Draw path
+            ctx.strokeStyle = "#555";
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.moveTo(path[0].x + 4, path[0].y + 4);
+            for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x + 4, path[i].y + 4);
+            ctx.stroke();
+
+            // Spawn enemies
+            spawnTimer++;
+            if (spawnTimer % 60 === 0) spawnEnemy();
+
+            // Update enemies
+            enemies.forEach((e, ei) => {
+                let target = path[e.pathIndex + 1];
+                if (target) {
+                    let dx = target.x - e.x;
+                    let dy = target.y - e.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    let speed = 0.5;
+                    if (dist < speed) e.pathIndex++;
+                    else { e.x += dx/dist * speed; e.y += dy/dist * speed; }
+                } else {
+                    lives--;
+                    enemies.splice(ei,1);
+                    beep(100, 'sawtooth', 0.2);
+                }
+            });
+
+            // Towers shoot
+            towers.forEach(t => {
+                t.cooldown--;
+                enemies.forEach(e => {
+                    let dx = e.x - t.x;
+                    let dy = e.y - t.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 30 && t.cooldown <= 0) {
+                        bullets.push({ x: t.x, y: t.y, dx: dx/dist*2, dy: dy/dist*2 });
+                        t.cooldown = 30;
+                    }
+                });
+            });
+
+            // Update bullets
+            bullets.forEach((b, bi) => {
+                b.x += b.dx; b.y += b.dy;
+                enemies.forEach((e, ei) => {
+                    let dx = e.x - b.x;
+                    let dy = e.y - b.y;
+                    if (Math.abs(dx) < 4 && Math.abs(dy) < 4) {
+                        e.hp--; bullets.splice(bi,1);
+                        if (e.hp <= 0) { enemies.splice(ei,1); money+=2; beep(800,'sine',0.1); }
+                    }
+                });
+            });
+
+            // Draw towers
+            towers.forEach(t => {
+                ctx.fillStyle = "#0f0";
+                ctx.fillRect(t.x-4, t.y-4, 8,8);
+            });
+
+            // Draw enemies
+            enemies.forEach(e => {
+                ctx.fillStyle = "#f00";
+                ctx.fillRect(e.x-4, e.y-4, 8, 8);
+            });
+
+            // Draw bullets
+            bullets.forEach(b => {
+                ctx.fillStyle = "#ff0";
+                ctx.fillRect(b.x-1, b.y-1, 2,2);
+            });
+
+            // Draw HUD
+            ctx.fillStyle = "#fff";
+            ctx.font = "8px monospace";
+            ctx.fillText("MONEY: "+money, 5, 10);
+            ctx.fillText("LIVES: "+lives, 5, 20);
+
+            // Place tower with SPACE near cursor
+            if (keys[" "]) {
+                let x = Math.floor(playerX/8)*8;
+                let y = Math.floor(playerY/8)*8;
+                placeTower(x,y);
+                keys[" "] = false;
+            }
+
+            // Simple cursor control
+            if (!window.playerX) { window.playerX=80; window.playerY=72; }
+            if (keys["ArrowLeft"]) window.playerX -= 2;
+            if (keys["ArrowRight"]) window.playerX += 2;
+            if (keys["ArrowUp"]) window.playerY -= 2;
+            if (keys["ArrowDown"]) window.playerY += 2;
+
+            // Draw cursor
+            ctx.strokeStyle = "#fff";
+            ctx.strokeRect(window.playerX-4, window.playerY-4, 8, 8);
+        }
+    };
+}
+
+
+
+
+// --- GAME: PIXEL PAINTER ---
+function PixelPainterGame() {
+    const gridSize = 8;
+    const cols = Math.floor(160 / gridSize);
+    const rows = Math.floor(144 / gridSize);
+    let canvasGrid = Array.from({ length: rows }, () => Array(cols).fill(0));
+    const colors = ["#000", "#0f0", "#ff0", "#f00", "#2ecbff", "#ff7f7f"];
+    let selectedColor = 1;
+    let cursor = { x: 0, y: 0 };
+
+    return {
+        update() {
+            ctx.fillStyle = "#111";
+            ctx.fillRect(0, 0, 160, 144);
+
+            // Move cursor
+            if (!this._lastKeys) this._lastKeys = {};
+            ["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].forEach(k => {
+                if (keys[k] && !this._lastKeys[k]) {
+                    if (k==="ArrowLeft") cursor.x = Math.max(0, cursor.x-1);
+                    if (k==="ArrowRight") cursor.x = Math.min(cols-1, cursor.x+1);
+                    if (k==="ArrowUp") cursor.y = Math.max(0, cursor.y-1);
+                    if (k==="ArrowDown") cursor.y = Math.min(rows-1, cursor.y+1);
+                }
+                this._lastKeys[k] = keys[k];
+            });
+
+            // Paint pixel with SPACE or A
+            if (keys[" "] || keys["a"]) {
+                canvasGrid[cursor.y][cursor.x] = selectedColor;
+            }
+
+            // Change color with numbers 1-6
+            for (let i=1; i<=6; i++) if (keys[i.toString()]) selectedColor = i;
+
+            // Draw grid
+            for (let y=0; y<rows; y++) {
+                for (let x=0; x<cols; x++) {
+                    ctx.fillStyle = colors[canvasGrid[y][x]];
+                    ctx.fillRect(x*gridSize, y*gridSize, gridSize, gridSize);
+                }
+            }
+
+            // Draw cursor
+            ctx.strokeStyle = "#fff";
+            ctx.strokeRect(cursor.x*gridSize, cursor.y*gridSize, gridSize, gridSize);
+
+            // HUD
+            ctx.fillStyle = "#fff";
+            ctx.font = "8px monospace";
+            ctx.fillText("COLOR: "+selectedColor+" (1-6)", 5, 10);
+            ctx.fillText("SPACE/A TO PAINT", 5, 20);
+        }
+    };
+}
+
+
+
+
+
+// --- GAME: SPACE MINING ADVENTURE ---
+function SpaceMiningGame() {
+    let ship = { x: 80, y: 120, w: 8, h: 8 };
+    let asteroids = [];
+    let minerals = [];
+    let score = 0;
+    let tick = 0;
+
+    function spawnAsteroid() {
+        asteroids.push({ x: Math.random()*152+4, y: -8, vy: 1 + Math.random()*1.5 });
+    }
+
+    function spawnMineral() {
+        minerals.push({ x: Math.random()*152+4, y: -8, vy: 0.5 + Math.random() });
+    }
+
+    return {
+        update() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, 160, 144);
+
+            // Player movement
+            if (keys["ArrowLeft"] && ship.x > 0) ship.x -= 2;
+            if (keys["ArrowRight"] && ship.x < 160 - ship.w) ship.x += 2;
+            if (keys["ArrowUp"] && ship.y > 0) ship.y -= 2;
+            if (keys["ArrowDown"] && ship.y < 144 - ship.h) ship.y += 2;
+
+            // Spawn objects
+            tick++;
+            if (tick % 60 === 0) spawnAsteroid();
+            if (tick % 90 === 0) spawnMineral();
+
+            // Update asteroids
+            asteroids.forEach((a, i) => {
+                a.y += a.vy;
+                ctx.fillStyle = "#888";
+                ctx.fillRect(a.x, a.y, 6,6);
+                if (a.y > 144) asteroids.splice(i,1);
+                // Collision
+                if (ship.x < a.x+6 && ship.x+ship.w > a.x && ship.y < a.y+6 && ship.y+ship.h > a.y) {
+                    beep(100, 'sawtooth', 0.5);
+                    loadGame('spaceMining'); // restart
+                }
+            });
+
+            // Update minerals
+            minerals.forEach((m,i) => {
+                m.y += m.vy;
+                ctx.fillStyle = "#ff0";
+                ctx.fillRect(m.x, m.y, 4,4);
+                if (m.y > 144) minerals.splice(i,1);
+                // Collection
+                if (ship.x < m.x+4 && ship.x+ship.w > m.x && ship.y < m.y+4 && ship.y+ship.h > m.y) {
+                    minerals.splice(i,1);
+                    score++;
+                    beep(800,'sine',0.1);
+                }
+            });
+
+            // Draw ship
+            ctx.fillStyle = "#0f0";
+            ctx.fillRect(ship.x, ship.y, ship.w, ship.h);
+
+            // HUD
+            ctx.fillStyle = "#fff";
+            ctx.font = "8px monospace";
+            ctx.fillText("SCORE: "+score, 5, 10);
+        }
+    };
+}
+
+
+
+
+
+// --- GAME: PIXEL RUNNER ---
+function PixelRunnerGame() {
+    let player = { x: 20, y: 120, vy: 0, w: 8, h: 8, onGround: true };
+    const gravity = 0.3;
+    const jumpPower = -5;
+    let obstacles = [];
+    let tick = 0;
+    let score = 0;
+    let speed = 2;
+
+    function spawnObstacle() {
+        const height = Math.random() * 20 + 8;
+        obstacles.push({ x: 160, y: 128 - height, w: 8, h: height });
+    }
+
+    return {
+        update() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, 160, 144);
+
+            // Player movement
+            if ((keys[" "] || keys["ArrowUp"] || keys["a"]) && player.onGround) {
+                player.vy = jumpPower;
+                player.onGround = false;
+                beep(600,'square',0.1);
+            }
+
+            player.vy += gravity;
+            player.y += player.vy;
+            if (player.y >= 120) { player.y = 120; player.vy = 0; player.onGround = true; }
+
+            // Spawn obstacles
+            tick++;
+            if (tick % 60 === 0) spawnObstacle();
+
+            // Update obstacles
+            obstacles.forEach((o,i) => {
+                o.x -= speed;
+                ctx.fillStyle = "#f00";
+                ctx.fillRect(o.x, o.y, o.w, o.h);
+                if (o.x + o.w < 0) { obstacles.splice(i,1); score++; }
+
+                // Collision
+                if (player.x < o.x+o.w && player.x+player.w > o.x &&
+                    player.y < o.y+o.h && player.y+player.h > o.y) {
+                    beep(100,'sawtooth',0.5);
+                    loadGame('pixelRunner'); // restart
+                }
+            });
+
+            // Draw player
+            ctx.fillStyle = "#0f0";
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+
+            // HUD
+            ctx.fillStyle = "#fff";
+            ctx.font = "8px monospace";
+            ctx.fillText("SCORE: "+score, 5, 10);
+        }
+    };
+}
+
+
+
+
+
+
+
+// --- GAME: BALLOON POPPER ---
+function BalloonPopperGame() {
+    let cannon = { x: 80, y: 130, w: 12, h: 6 };
+    let balloons = [];
+    let tick = 0;
+    let score = 0;
+
+    function spawnBalloon() {
+        const isBomb = Math.random() < 0.15;
+        balloons.push({ x: Math.random()*148+6, y: 144, vy: 0.7 + Math.random()*0.5, bomb: isBomb });
+    }
+
+    return {
+        update() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0,0,160,144);
+
+            // Cannon movement
+            if (keys["ArrowLeft"] && cannon.x>0) cannon.x -= 2;
+            if (keys["ArrowRight"] && cannon.x<160-cannon.w) cannon.x += 2;
+
+            // Spawn balloons
+            tick++;
+            if (tick % 40 === 0) spawnBalloon();
+
+            // Update balloons
+            balloons.forEach((b,i) => {
+                b.y -= b.vy;
+                ctx.fillStyle = b.bomb ? "#f00" : "#ff0";
+                ctx.beginPath();
+                ctx.arc(b.x, b.y, 6, 0, Math.PI*2);
+                ctx.fill();
+
+                // Collision with cannon
+                if (b.y - 6 < cannon.y + cannon.h && b.y + 6 > cannon.y &&
+                    b.x + 6 > cannon.x && b.x - 6 < cannon.x + cannon.w) {
+                    if (b.bomb) { score = Math.max(0, score-1); beep(100,'sawtooth',0.3); }
+                    else { score++; beep(800,'sine',0.1); }
+                    balloons.splice(i,1);
+                }
+
+                // Remove if off screen
+                if (b.y + 6 < 0) balloons.splice(i,1);
+            });
+
+            // Draw cannon
+            ctx.fillStyle = "#0f0";
+            ctx.fillRect(cannon.x, cannon.y, cannon.w, cannon.h);
+
+            // HUD
+            ctx.fillStyle = "#fff";
+            ctx.font = "8px monospace";
+            ctx.fillText("SCORE: "+score, 5, 10);
+        }
+    };
+}
+
+
+
+// --- GAME: RHYTHM TAP (FIXED) ---
+function RhythmTapGame() {
+    const lanes = [30, 60, 90, 120];
+    const keysMap = ["a","s","d","f"]; // one key per lane
+    let notes = [];
+    let tick = 0;
+    let score = 0;
+
+    function spawnNote() {
+        const laneIndex = Math.floor(Math.random()*lanes.length);
+        notes.push({ x: lanes[laneIndex], lane: laneIndex, y: -10 });
+    }
+
+    return {
+        update() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0,0,160,144);
+
+            tick++;
+            if (tick % 30 === 0) spawnNote();
+
+            // Draw lanes
+            ctx.strokeStyle = "#555";
+            lanes.forEach(x => { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,144); ctx.stroke(); });
+
+            // Update notes
+            notes.forEach((n,i) => {
+                n.y += 2;
+                ctx.fillStyle = "#ff0";
+                ctx.fillRect(n.x-4, n.y-4, 8, 8);
+
+                // Check for tap
+                if ((keys[keysMap[n.lane]] || keys[" "]) && n.y > 120 && n.y < 132) {
+                    score++;
+                    beep(800,'sine',0.1);
+                    notes.splice(i,1);
+                }
+
+                // Remove if missed
+                if (n.y > 144) notes.splice(i,1);
+            });
+
+            // Draw hit line
+            ctx.strokeStyle = "#0f0";
+            ctx.beginPath();
+            ctx.moveTo(0,124);
+            ctx.lineTo(160,124);
+            ctx.stroke();
+
+            // HUD
+            ctx.fillStyle = "#fff";
+            ctx.font = "8px monospace";
+            ctx.fillText("SCORE: "+score, 5, 10);
+            ctx.fillText("TAP A S D F OR SPACE", 5, 20);
+        }
+    };
+}
+
+
+
+
+
+
+// --- GAME: ALIEN DODGER ---
+function AlienDodgerGame() {
+    let ship = { x: 72, y: 130, w: 16, h: 8 };
+    let aliens = [];
+    let tick = 0;
+    let score = 0;
+    let speed = 1.5;
+
+    function spawnAlien() {
+        aliens.push({ x: Math.random()*144, y: -8, w: 8, h: 8 });
+    }
+
+    return {
+        update() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0,0,160,144);
+
+            // Ship movement
+            if (keys["ArrowLeft"] && ship.x>0) ship.x -= 2;
+            if (keys["ArrowRight"] && ship.x<160-ship.w) ship.x += 2;
+
+            // Spawn aliens
+            tick++;
+            if (tick % 50 === 0) spawnAlien();
+
+            // Update aliens
+            aliens.forEach((a,i) => {
+                a.y += speed;
+                ctx.fillStyle = "#f00";
+                ctx.fillRect(a.x, a.y, a.w, a.h);
+
+                // Collision
+                if (ship.x < a.x + a.w && ship.x + ship.w > a.x &&
+                    ship.y < a.y + a.h && ship.y + ship.h > a.y) {
+                    beep(100,'sawtooth',0.5);
+                    loadGame('alienDodger'); // restart
+                }
+
+                // Remove if off-screen
+                if (a.y > 144) {
+                    aliens.splice(i,1);
+                    score++;
+                }
+            });
+
+            // Draw ship
+            ctx.fillStyle = "#0f0";
+            ctx.fillRect(ship.x, ship.y, ship.w, ship.h);
+
+            // HUD
+            ctx.fillStyle = "#fff";
+            ctx.font = "8px monospace";
+            ctx.fillText("SCORE: "+score, 5, 10);
+            ctx.fillText("ARROWS TO MOVE", 5, 20);
+        }
+    };
+}
+
+
+
+
+
+
+// --- GAME: LIGHT PUZZLE ---
+function LightPuzzleGame() {
+    const size = 5; // 5x5 grid
+    const cellSize = 24;
+    let grid = [];
+    let moves = 0;
+
+    // Initialize random grid (true=light on, false=off)
+    for (let y=0; y<size; y++) {
+        grid[y] = [];
+        for (let x=0; x<size; x++) grid[y][x] = Math.random() < 0.5;
+    }
+
+    function toggle(x, y) {
+        if (x>=0 && x<size && y>=0 && y<size) grid[y][x] = !grid[y][x];
+    }
+
+    function clickCell(px, py) {
+        const x = Math.floor(px/cellSize);
+        const y = Math.floor(py/cellSize);
+        toggle(x, y);
+        toggle(x-1, y);
+        toggle(x+1, y);
+        toggle(x, y-1);
+        toggle(x, y+1);
+        moves++;
+    }
+
+    return {
+        update() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0,0,160,144);
+
+            // Draw grid
+            for (let y=0; y<size; y++) {
+                for (let x=0; x<size; x++) {
+                    ctx.fillStyle = grid[y][x] ? "#ff0" : "#222";
+                    ctx.fillRect(x*cellSize + 20, y*cellSize + 20, cellSize-2, cellSize-2);
+                }
+            }
+
+            // Handle clicks (space/A triggers random cell for simplicity)
+            if (keys[" "] || keys["a"]) {
+                const cx = Math.floor(Math.random()*size);
+                const cy = Math.floor(Math.random()*size);
+                clickCell(cx, cy);
+                keys[" "] = keys["a"] = false;
+                beep(600,'square',0.1);
+            }
+
+            // Check win
+            let allOn = grid.flat().every(c => c);
+            if (allOn) {
+                ctx.fillStyle = "#0f0";
+                ctx.font = "12px monospace";
+                ctx.textAlign = "center";
+                ctx.fillText("ALL LIGHTS ON!", 80, 140);
+            }
+
+            // HUD
+            ctx.fillStyle = "#fff";
+            ctx.font = "8px monospace";
+            ctx.textAlign = "left";
+            ctx.fillText("SPACE/A TO TOGGLE RANDOM", 5, 10);
+            ctx.fillText("MOVES: "+moves, 5, 20);
+        }
+    };
+}
+
+
+
+
+
+
+
+
+
+
+// --- GAME: GEM COLLECTOR ---
+function GemCollectorGame() {
+    let player = { x: 72, y: 130, w: 8, h: 8 };
+    let gems = [];
+    let tick = 0;
+    let score = 0;
+
+    function spawnGem() {
+        gems.push({ x: Math.random()*144, y: Math.random()*100, w:6, h:6 });
+    }
+
+    return {
+        update() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0,0,160,144);
+
+            // Player movement
+            if (keys["ArrowLeft"] && player.x>0) player.x -= 2;
+            if (keys["ArrowRight"] && player.x<160-player.w) player.x += 2;
+            if (keys["ArrowUp"] && player.y>0) player.y -= 2;
+            if (keys["ArrowDown"] && player.y<144-player.h) player.y += 2;
+
+            // Spawn gems
+            tick++;
+            if (tick % 60 === 0) spawnGem();
+
+            // Update gems
+            gems.forEach((g,i) => {
+                ctx.fillStyle = "#0ff";
+                ctx.fillRect(g.x, g.y, g.w, g.h);
+
+                // Collision
+                if (player.x < g.x + g.w && player.x + player.w > g.x &&
+                    player.y < g.y + g.h && player.y + player.h > g.y) {
+                    score++;
+                    beep(800,'sine',0.1);
+                    gems.splice(i,1);
+                }
+            });
+
+            // Draw player
+            ctx.fillStyle = "#ff0";
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+
+            // HUD
+            ctx.fillStyle = "#fff";
+            ctx.font = "8px monospace";
+            ctx.fillText("SCORE: "+score, 5, 10);
+            ctx.fillText("ARROWS TO MOVE", 5, 20);
+        }
+    };
+}
+
+
+
+
+    loop();
+
+</script>
+</body>
+</html>

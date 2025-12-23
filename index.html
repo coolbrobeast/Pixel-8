@@ -742,7 +742,7 @@ function MiniRacerGame() {
     let speed = 0;
 
     // Generate a long track (straight + curves)
-    const trackLength = 10000000000; // much longer
+    const trackLength = 10000000; // much longer
     for (let i = 0; i < trackLength; i++) {
         let offset = Math.sin(i/5) * 25 + Math.sin(i/15)*15; // more curves
         track.push({ y: i*16, left: trackLeft + offset, right: trackLeft + offset + trackWidth });
@@ -1548,4 +1548,5 @@ function GemCollectorGame() {
 </script>
 </body>
 </html>
+
 
